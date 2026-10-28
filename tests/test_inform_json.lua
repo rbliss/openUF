@@ -592,6 +592,39 @@ return {
 		end
 	},
 	{
+		name = "inform json: inform_ip is the controller's IPv4 address, a host name resolved once per TTL",
+		fn = function()
+			local real_toip, real_time = inform._dns_toip, inform._time
+			local asked, now, answer = 0, 1000, "192.0.2.10"
+			inform._dns_toip = function(host)
+				asked = asked + 1
+				assert_eq(host, "unifi", "the URL's host is resolved")
+				return answer
+			end
+			inform._time = function() return now end
+			inform._inform_ip_cache = nil
+			local ok, err = pcall(function()
+				local d = build({st = {inform_url = "http://192.0.2.20:8080/inform"}})
+				assert_eq(d.inform_ip, "192.0.2.20", "an IP literal is sent as it is")
+				assert_eq(asked, 0, "an IP literal is not resolved")
+
+				d = build({st = {inform_url = "http://unifi:8080/inform"}})
+				assert_eq(d.inform_ip, "192.0.2.10", "a host name is sent resolved")
+				build({st = {inform_url = "http://unifi:8080/inform"}})
+				assert_eq(asked, 1, "the next inform inside the TTL uses the cache")
+
+				now = now + inform.INFORM_IP_TTL
+				answer = nil
+				d = build({st = {inform_url = "http://unifi:8080/inform"}})
+				assert_eq(asked, 2, "resolved again once the TTL ran out")
+				assert_nil(d.inform_ip, "an unresolvable name sends no inform_ip")
+			end)
+			inform._dns_toip, inform._time = real_toip, real_time
+			inform._inform_ip_cache = nil
+			if not ok then error(err, 0) end
+		end
+	},
+	{
 		name = "inform json: a second WLAN on the same radio does not inherit the first's clients",
 		fn = function()
 			-- The live bug: with "Home LAN" and a brand-new "Home IoT" both on
