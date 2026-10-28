@@ -74,7 +74,10 @@ less confidentiality than L3 provisioning already assumes.
 **L2 (broadcast discovery + real SSH).** With `announce.lua` broadcasting, the controller
 runs genuine SSH on the Adopt click and executes `syswrapper.sh set-adopt <url> <key>`,
 which is what `state.lua`'s `adopted`/`authkey`/`inform_url`/`cfgversion`/`use_gcm` shape
-expects. Two things real hardware needs:
+expects. Network 10.6 sends the absolute path `/usr/bin/syswrapper.sh`, and some builds
+append the device's MAC as a third argument (10.6 devmgr `VtWV`, from fonix232/openUF
+`168c3621`; not re-checked here). `syswrapper.lua` refuses a MAC that differs from the
+`mac` in `state.json`. Two things real hardware needs:
 
 - The controller's SSH client (`sshj`) offers only legacy `ssh-rsa` (SHA-1), so
   `HostKeyAlgorithms +ssh-rsa` / `PubkeyAcceptedAlgorithms +ssh-rsa` are required in
