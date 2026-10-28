@@ -25,6 +25,11 @@ implementation and fxkr/unifi-protocol-reverse-engineering's documentation. `PKT
 is 1; the GCM AAD is the 40-byte header. `mgmt_cfg` is a newline-delimited `key=value`
 **string**, not JSON.
 
+`parse_packet` refuses a response without the `0x01` flag. The controller encrypts its answer
+to an encrypted inform and sends plaintext only to a plaintext inform, as bare JSON rather
+than a TNBU packet (10.6.106 `InformServlet`, from fonix232/openUF `168c3621`; not re-checked
+here). openUF never sends a plaintext inform.
+
 ### The GCM provisioning gate
 
 **The controller will not provision a device until it has received a genuine AES-GCM

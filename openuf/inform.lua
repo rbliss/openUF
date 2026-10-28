@@ -498,18 +498,23 @@ function M.parse_packet(raw, st)
 		error("inform: truncated payload")
 	end
 
-	-- Decrypt
-	if bit.band(flags, FLAG_ENCRYPTED) ~= 0 then
-		local key = st.authkey
-		if bit.band(flags, FLAG_GCM) ~= 0 then
-			-- AAD = full 40-byte packet header (per amd989/unifi-gateway decode_inform)
-			local aad = raw:sub(1, 40)
-			local ct  = payload:sub(1, #payload - 16)
-			local tag = payload:sub(#payload - 15)
-			payload = crypto.aes_gcm_decrypt(key, iv, ct, tag, aad)
-		else
-			payload = crypto.aes_cbc_decrypt(key, iv, payload)
-		end
+	-- The controller encrypts its answer to an encrypted inform, and every
+	-- inform openUF sends is encrypted (10.6.106 InformServlet, fonix232/openUF
+	-- 168c3621). A packet without the flag is not from the controller, and
+	-- taking it would let anyone on the plain-HTTP path push a setparam
+	-- without knowing a key.
+	if bit.band(flags, FLAG_ENCRYPTED) == 0 then
+		error("inform: refusing an unencrypted response")
+	end
+	local key = st.authkey
+	if bit.band(flags, FLAG_GCM) ~= 0 then
+		-- AAD = full 40-byte packet header (per amd989/unifi-gateway decode_inform)
+		local aad = raw:sub(1, 40)
+		local ct  = payload:sub(1, #payload - 16)
+		local tag = payload:sub(#payload - 15)
+		payload = crypto.aes_gcm_decrypt(key, iv, ct, tag, aad)
+	else
+		payload = crypto.aes_cbc_decrypt(key, iv, payload)
 	end
 
 	-- Decompress — Snappy (0x04) is not supported; zlib (0x02) is.

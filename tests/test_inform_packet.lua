@@ -5002,6 +5002,21 @@ return {
 		end
 	},
 	{
+		name = "inform packet: parse_packet refuses a response without the encrypted flag",
+		fn = function()
+			local body = '{"_type":"setparam","mgmt_cfg":"inform_url=http://192.0.2.66:8080/inform"}'
+			local function u32(n)
+				return string.char(math.floor(n/16777216)%256, math.floor(n/65536)%256,
+					math.floor(n/256)%256, n%256)
+			end
+			local pkt = MAGIC .. u32(1) .. "\170\187\204\221\238\255"
+				.. string.char(0, 0) .. FIXED_IV .. u32(1) .. u32(#body) .. body
+			local ok, err = pcall(inform.parse_packet, pkt, sample_state())
+			assert_false(ok, "a plaintext packet is not handed on")
+			assert_contains(tostring(err), "unencrypted", "and the error says why")
+		end
+	},
+	{
 		name = "inform: _state_mtime forks nothing and returns nil for a missing file",
 		fn = function()
 			-- This runs on the first line of every heartbeat. It used to fork
