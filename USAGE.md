@@ -367,8 +367,8 @@ Requirements, from the upstream README:
 
 To enable it, from a wired connection:
 
-1. Install `openuf-plugin-rrb-unifi`, then run `/etc/init.d/network reload` to create the veth.
-   The package does not reload the network itself.
+1. Install `openuf-plugin-rrb-unifi`. On a first install, the package reloads the network to
+   create the veth.
 2. Run `rrb-unifi-setup collect USER@UNIFI_IP`, then `rrb-unifi-setup peers`. Run both again when
    a UniFi AP is added or replaced.
 3. Run `echo rrb-unifi >> /etc/openuf/plugins.enabled && /etc/init.d/openuf restart`. Force

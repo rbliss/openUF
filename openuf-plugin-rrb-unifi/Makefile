@@ -62,15 +62,23 @@ define Package/openuf-plugin-rrb-unifi/install
 	$(INSTALL_DATA) ./files/rrb-unifi.uci-defaults $(1)/etc/uci-defaults/90_rrb-unifi
 endef
 
-# An upgrade leaves the old daemon running under procd, and openUF keeps the
-# old plugin loaded until it restarts.
+# default_postinst runs the uci-defaults script before this, so on a first
+# install the veth sections exist and a network reload creates the veth. An
+# upgrade leaves the old daemon running under procd, and openUF keeps the old
+# plugin loaded until it restarts.
 define Package/openuf-plugin-rrb-unifi/postinst
 #!/bin/sh
 [ -n "$${IPKG_INSTROOT}" ] && exit 0
-[ "$${PKG_UPGRADE}" = 1 ] || exit 0
-/etc/init.d/rrb-unifi restart
-if sed 's/#.*//; s/^[[:space:]]*//; s/[[:space:]]*$$//' /etc/openuf/plugins.enabled 2>/dev/null | grep -qxF rrb-unifi; then
-	/etc/init.d/openuf restart
+if [ "$${PKG_UPGRADE}" = 1 ]; then
+	/etc/init.d/rrb-unifi restart
+	if sed 's/#.*//; s/^[[:space:]]*//; s/[[:space:]]*$$//' /etc/openuf/plugins.enabled 2>/dev/null | grep -qxF rrb-unifi; then
+		/etc/init.d/openuf restart
+	fi
+	exit 0
+fi
+peer=$$(uci -q get network.vft.peer_name)
+if [ -n "$$peer" ] && [ ! -e "/sys/class/net/$$peer" ]; then
+	/etc/init.d/network reload
 fi
 exit 0
 endef
