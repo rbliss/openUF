@@ -750,10 +750,12 @@ supported`, `Content too short`). Ruled out as causes, so they are not re-tried:
 real zlib-compressed, correctly-flagged payload gets the same 404) and GCM-vs-CBC (both get the
 same 404).
 
-`http_post` treats any non-200 as a hard failure and never inspects the body. In every case
-observed the body was genuinely empty, so nothing is lost — but the client cannot distinguish
-"processed, nothing to say" from "rejected," and backs off identically either way. **When you
-see this on a fresh device: click Adopt.** That is the correct next move, not more debugging.
+`http_post` returns any non-200 as an error and never inspects the body. In every case
+observed the body was empty, so nothing is lost. While the device is unadopted, `_tick` takes
+a 404 as this pending answer: it keeps the device's own cadence instead of backing off, and
+logs `inform: pending adoption` once. Any other error, and a 404 after adoption, backs off.
+**When you see this on a fresh device: click Adopt.** That is the correct next move, not more
+debugging.
 
 ### Historical stats live in the `unifi_stat` database, on a 5-minute cadence
 
