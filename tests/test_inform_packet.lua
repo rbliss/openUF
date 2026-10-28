@@ -5503,6 +5503,40 @@ return {
 		end
 	},
 	{
+		name = "inform: HTTP 503 waits the longest backoff at once",
+		fn = function()
+			local orig = {
+				build_json = inform.build_json, build_packet = inform.build_packet,
+				http_post = inform.http_post, parse_packet = inform.parse_packet,
+				handle_response = inform.handle_response,
+				reload = inform._reload_if_changed, rrm = inform._rrm_tick,
+				stderr = io.stderr,
+			}
+			io.stderr = {write = function() end}
+			inform._reload_if_changed = function(_, _, last) return last end
+			inform._rrm_tick = function() return false end
+			inform.build_json = function() return "{}" end
+			inform.build_packet = function() return "pkt" end
+			inform.parse_packet = function() return '{"_type":"noop"}' end
+			inform.handle_response = function() return false end
+
+			local st = {inform_url = "http://192.0.2.1:8080/inform", adopted = true}
+			inform.http_post = function() return nil, "HTTP 503" end
+			local first = inform._tick(st, nil, nil, {interval = 10, backoff = 10})
+			local slow = inform._tick(st, nil, nil, {interval = 90, backoff = 90})
+
+			io.stderr = orig.stderr
+			inform.build_json, inform.build_packet, inform.http_post,
+				inform.parse_packet, inform.handle_response,
+				inform._reload_if_changed, inform._rrm_tick =
+				orig.build_json, orig.build_packet, orig.http_post,
+				orig.parse_packet, orig.handle_response, orig.reload, orig.rrm
+
+			assert_eq(first, 60, "the first 503 waits the 60 s cap, not 20 s")
+			assert_eq(slow, 90, "at a longer controller interval, that interval")
+		end
+	},
+	{
 		name = "inform: _sane_interval clamps the controller's interval",
 		fn = function()
 			assert_eq(inform._sane_interval(10), 10, "a normal value passes through")
