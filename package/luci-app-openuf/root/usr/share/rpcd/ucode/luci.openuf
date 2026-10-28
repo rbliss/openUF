@@ -1,0 +1,111 @@
+// openUF status for LuCI (luci-app-openuf). Read-only. The authkey and any
+// other secret in state.json is never returned.
+
+'use strict';
+
+import { readfile, access, lsdir, popen } from 'fs';
+import { connect } from 'ubus';
+
+const OPENUF = '/opt/openuf';
+
+function json_file(path) {
+	const raw = readfile(path);
+	if (!raw)
+		return null;
+	try { return json(raw); } catch (e) { return null; }
+}
+
+// /proc/<pid>/cmdline separates the arguments with NUL bytes, so compare the
+// argument list, not a pattern.
+function running(script) {
+	for (let pid in lsdir('/proc') ?? []) {
+		if (!match(pid, /^[0-9]+$/))
+			continue;
+		const argv = split(readfile(`/proc/${pid}/cmdline`) ?? '', '\u0000');
+		if (length(argv) >= 2 && match(argv[0], /(^|\/)lua$/) && argv[1] == script)
+			return true;
+	}
+	return false;
+}
+
+// conf.lua is Lua code, so the daemon's own interpreter reads it.
+function conf() {
+	const p = popen(`cd ${OPENUF} && lua /usr/libexec/luci-openuf-conf.lua 2>/dev/null`, 'r');
+	if (!p)
+		return {};
+	const raw = p.read('all');
+	p.close();
+	try { return json(raw) ?? {}; } catch (e) { return {}; }
+}
+
+function list(v) {
+	return (type(v) == 'array') ? v : [];
+}
+
+function live_address(iface) {
+	const conn = connect();
+	if (!conn)
+		return null;
+	const st = conn.call(`network.interface.${iface}`, 'status');
+	conn.disconnect();
+	const a = st?.['ipv4-address']?.[0];
+	return a ? { ip: a.address, mask: a.mask, proto: st.proto } : null;
+}
+
+const methods = {
+	status: {
+		call: function() {
+			const c = conf();
+			const st = json_file(c.state_file || '/etc/openuf/state.json') ?? {};
+			const ports = list(c.ports);
+			let uplink = null;
+			for (let p in ports)
+				if (p.uplink)
+					uplink = p.ifname;
+			const addr = match(c.lan_name ?? 'lan', /^[A-Za-z0-9_]+$/)
+				? live_address(c.lan_name ?? 'lan') : null;
+
+			return {
+				service: {
+					installed: !!access(`${OPENUF}/inform.lua`),
+					enabled: !!access('/etc/rc.d/S99openuf'),
+					running: running('inform.lua'),
+					announcing: running('announce.lua')
+				},
+				controller: {
+					inform_url: st.inform_url ?? c.inform_url,
+					adopted: !!st.adopted,
+					cfgversion: st.cfgversion || null,
+					stun_url: st.stun_url || null,
+					upgrade_requested: st.upgrade_requested_version || null
+				},
+				identity: {
+					ufmodel: c.ufmodel,
+					model: c.model,
+					fw: c.fw,
+					mac: st.mac || null,
+					ip: addr ? `${addr.ip}/${addr.mask}` : (st.ip || null),
+					addressing: addr?.proto,
+					hostname: st.hostname || null
+				},
+				hardware: {
+					modelmap: c.modelmap,
+					uplink: uplink,
+					ports: ports,
+					radios: list(c.hwassign),
+					led: c.led
+				},
+				diagnostics: {
+					blocked_clients: length(st.blocked_stas ?? [])
+				},
+				config: {
+					l2_announce: c.l2_announce,
+					bootstrap_adopt_user: c.bootstrap_adopt_user,
+					debug_dump_file: c.debug_dump_file
+				}
+			};
+		}
+	}
+};
+
+return { 'luci.openuf': methods };

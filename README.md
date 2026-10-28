@@ -244,7 +244,8 @@ openuf/ install.sh root@<device>:/tmp/openuf/` and run `install.sh` from there.
 An OpenWrt package is the other way in. ⚠️ It has never been built with an OpenWrt SDK
 or installed on an AP. `package/openuf/` builds an `apk` with this repository as a feed,
 installed to the same `/opt/openuf/`, with only the required dependencies and no `wpad`
-swap ([USAGE § 2](USAGE.md#openwrt-package)).
+swap ([USAGE § 2](USAGE.md#openwrt-package)). `package/luci-app-openuf/` adds a read-only
+LuCI status page, also never built or opened.
 
 See [USAGE.md](USAGE.md) for full dependency details, configuration reference, and troubleshooting.
 
