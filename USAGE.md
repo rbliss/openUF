@@ -499,8 +499,10 @@ What stays: timezone and NTP (§ 6), each radio's channel, width, power and coun
 management address, and, after a Forget, the inform URL. A forgotten device keeps informing the same
 controller and shows up there ready to adopt. A `reset-inform` goes back to conf.lua's
 `inform_url`. If that names the controller by host name (the shipped `http://unifi:8080/inform`),
-an L3 adoption fails with HTTP 400 (`invalid inform_ip`), so run
-`syswrapper.sh set-inform http://<controller IP>:8080/inform` first.
+the AP must resolve the name: openUF sends the resolved address as `inform_ip`, and without it
+an L3 adoption fails with HTTP 400 (`invalid inform_ip`). Whether a resolved name alone
+completes an adoption has not been checked against a controller, so
+`syswrapper.sh set-inform http://<controller IP>:8080/inform` stays the safe way.
 
 Forget also deletes the device record on the controller. After re-adopting, set its name,
 channels, channel width, port VLANs and LED again.
