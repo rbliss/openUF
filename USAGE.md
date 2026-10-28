@@ -338,6 +338,57 @@ at the next start; Force Provision does the same at once. Failures are logged
 (`logread | grep "openuf: plugin"`) and skipped, and the push goes on. The contract, the `ctx`
 reference, uninstall order, versioning and testing are in [docs/PLUGINS.md](docs/PLUGINS.md).
 
+#### Fast roaming with UniFi APs (`openuf-plugin-rrb-unifi`)
+
+The `openuf-plugin-rrb-unifi` package lets clients make 802.11r fast transitions between an
+openUF AP and genuine UniFi APs. It packages release 1.4 of
+[d-malinowski/unifi-openwrt-roaming](https://github.com/d-malinowski/unifi-openwrt-roaming), a
+separate GPL-3.0-or-later project. Its recipe (`openuf-plugin-rrb-unifi/Makefile`) downloads that
+release at build time, so no file of that project is in this repository. It depends on the
+`openuf` package. ⚠️ No image or AP has run this package yet.
+
+| Installed file | What it is |
+|---|---|
+| `/usr/sbin/rrb-unifi.uc` | The translator daemon. It converts the RRB frames (ethertype `0x88b7`) that carry the 802.11r keys between the OpenWrt and the UniFi framing, and sends and receives UniFi roam announcements. |
+| `/etc/init.d/rrb-unifi` | The translator service. OpenWrt enables and starts it at install. |
+| `/etc/config/rrb-unifi` | The translator settings, and the `ft_peer` list of UniFi BSSes that the plugin reads. |
+| `/etc/openuf/plugins/rrb-unifi.lua` | The plugin, not enabled. On each WLAN with 802.11r it sets the UniFi mobility domain, `nasid`, the key holders, and `ft_iface=vft0` while the veth exists. |
+| `/usr/sbin/rrb-unifi-setup` | The upstream setup tool. With the package, use only `collect`, `peers` and `verify`. |
+| `/etc/uci-defaults/90_rrb-unifi` | Adds the veth pair `vft0`/`vft1` to `/etc/config/network` (sections `vft`, `ftlink`, `ftpeer`) unless one of those sections exists. |
+
+Requirements, from the upstream README:
+
+- Fast Roaming is on for the WLAN in UniFi, and the UniFi APs use FT over the air
+  (`ft_over_ds=0`, the UniFi default). The translator does not handle FT over the DS. openUF
+  writes `ft_over_ds=0` on its own side.
+- Both APs keep the right time (NTP). A receiver drops roam announcements more than 60 s old.
+- The openUF AP and the UniFi APs share one layer-2 network.
+- `collect` reads the UniFi AP over SSH (UniFi Network: Device SSH Authentication).
+
+To enable it, from a wired connection:
+
+1. Install `openuf-plugin-rrb-unifi`. On a first install, the package reloads the network to
+   create the veth.
+2. Run `rrb-unifi-setup collect USER@UNIFI_IP`, then `rrb-unifi-setup peers`. Run both again when
+   a UniFi AP is added or replaced.
+3. Run `echo rrb-unifi >> /etc/openuf/plugins.enabled && /etc/init.d/openuf restart`. Force
+   Provision makes the push immediate.
+4. After the push, run `/etc/init.d/rrb-unifi restart`, then `rrb-unifi-setup verify`. A
+   translator start fails when no hostapd BSS uses `vft0` within 120 s, and procd stops
+   restarting it after 5 failures.
+
+Removing the package takes `rrb-unifi` out of `plugins.enabled` and restarts openUF. If
+`conf.lua` lists it, remove it there and restart openUF first. Wait until
+`uci show wireless | grep ft_iface` prints nothing after the next push. Only then delete
+`network.vft`, `network.ftlink` and `network.ftpeer` and reload the network: hostapd does not
+start a BSS whose `ft_iface` is missing. Do not use `rrb-unifi-setup uninstall` here, because it
+deletes the package's files without the package manager.
+
+Upstream tested 1.4 with one BT Home Hub 5A on OpenWrt 24.10.4 and 25.12.6 with the full
+`wpad-mbedtls`, one UniFi U7 Lite on firmware 8.7.11, and one Samsung Galaxy S24, on WPA2-PSK
+without 802.11w. The evidence, including which steps ran with openUF, is in its README under
+[Tested with](https://github.com/d-malinowski/unifi-openwrt-roaming/blob/v1.4/README.md#tested-with).
+
 ---
 
 ## 4. Adoption flow
@@ -764,9 +815,10 @@ lists whose secret is the controller's `aaa.<n>.iapp_key`. That's a random 128-b
 WLAN, the same one UniFi firmware uses for its own inter-AP FT traffic, so every openUF AP on
 the WLAN agrees with no coordination. If the push carries no `iapp_key` (`iapp_enabled` off),
 OpenWrt falls back to deriving the key from `md5(mobility_domain/psk)`. That one works too,
-but anyone who knows the passphrase can compute it. Fast transitions between openUF and real
-UniFi APs are not possible: those learn their peers through a Ubiquiti-only hostapd
-extension (PROTOCOL-VALIDATION.md, "802.11r key holders").
+but anyone who knows the passphrase can compute it. openUF alone makes no fast transitions with
+real UniFi APs: those learn their peers through a Ubiquiti-only hostapd
+extension (PROTOCOL-VALIDATION.md, "802.11r key holders"). The `openuf-plugin-rrb-unifi` package
+adds them ([§ 3, Fast roaming with UniFi APs](#fast-roaming-with-unifi-aps-openuf-plugin-rrb-unifi)).
 
 **How to tell whether a transition was actually fast**, since nothing in the controller
 shows it — force one and read the target AP's log:
