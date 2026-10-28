@@ -146,6 +146,12 @@ The complete set, per `InformServlet`: `noop`, `setparam`, `cmd`, `upgrade`, `re
 | `reboot` | `{"_type":"reboot","reboot_type":"soft",…}` | The top-level form is the real one; `{"_type":"cmd","cmd":"restart"}` is not this action's path. `reboot_type` is unused. |
 | `setdefault` | `{"_type":"setdefault","server_time_in_utc":"…"}` | The controller's **Forget** of a connected device (`cmd/sitemgr delete-device`). UniFi firmware runs `syswrapper.sh restore-default`: `cfgmtd -c` then `reboot` (firmware-confirmed for 4.0.15). openUF tears its own config down without a reboot; see matrix #10. |
 
+**A failed POST backs off.** The wait doubles from the current cadence up to 60 s, or up to
+the controller's `interval` when that is longer. HTTP 503 goes straight to that cap: the
+controller answers 503 when it is shedding inform load ("Server is busy" on 10.6; 11.x
+inform load shedding). The 503 cases come from fonix232/openUF `168c3621` and were not
+re-checked here.
+
 **After executing a `cmd` the device must send another inform immediately** (documented by
 fxkr, confirmed live: the controller's next `noop` lands in the same second).
 

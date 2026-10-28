@@ -6924,8 +6924,15 @@ function M._tick(st, cfg, ufhw, ctx)
 		-- Doubles from the CURRENT cadence, capped at 60 s -- or at the
 		-- controller's own interval when that is longer, since a failure
 		-- must never make the device poll faster than it was asked to.
-		ctx.backoff = math.min(math.max(ctx.backoff, ctx.interval) * 2,
-			math.max(60, ctx.interval))
+		local cap = math.max(60, ctx.interval)
+		-- HTTP 503 is the controller shedding load ("Server is busy" on 10.6,
+		-- inform load shedding on 11.x; fonix232/openUF 168c3621), so the
+		-- wait goes straight to the cap.
+		if err == "HTTP 503" then
+			ctx.backoff = cap
+			return ctx.backoff
+		end
+		ctx.backoff = math.min(math.max(ctx.backoff, ctx.interval) * 2, cap)
 		return ctx.backoff
 	end
 	ctx.backoff = ctx.interval
