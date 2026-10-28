@@ -133,6 +133,40 @@ itself is left intact so that the authkey survives, and un-registering it would 
 next firmware upgrade delete exactly what it is being kept for. Remove that line by hand
 if you also delete `/etc/openuf/`; leaving it costs nothing either way.
 
+### OpenWrt package
+
+⚠️ The package has not been built with an OpenWrt SDK or buildroot, and has not been
+installed on an AP. `package/openuf/Makefile` builds openUF as an `apk` package (an `ipk`
+on 24.10 and earlier), with this repository as a feed. In an OpenWrt buildroot or SDK:
+
+```sh
+echo "src-git openuf https://github.com/rbliss/openUF.git" >> feeds.conf.default
+./scripts/feeds update -a
+./scripts/feeds install openuf
+make defconfig
+make package/openuf/compile
+```
+
+`src-link openuf /path/to/openUF` in place of the `src-git` line builds a local checkout.
+The result is `bin/packages/<arch>/openuf/openuf-<version>.apk`. The SDK signs it with its
+own key, which the device does not trust, so install it with
+`apk add --allow-untrusted ./openuf-<version>.apk` (`opkg install` for an `.ipk`). Then
+install a full `wpad` build and the optional packages from [§ 1](#1-dependencies) by hand.
+
+| | `install.sh install` | The package |
+|---|---|---|
+| Code | `/opt/openuf/`, comment-stripped | The same tree, staged by `tools/dist.sh --stage` |
+| `conf.lua` | An existing one is kept; the shipped default goes to `conf.lua.dist` | The default ships as `conf.lua.dist`. The post-install script copies it to `conf.lua` only when `conf.lua` is missing, so the package never owns or replaces `conf.lua` |
+| Dependencies | Required ones, optional ones when the overlay has room, and a full `wpad` in place of a basic one | Required ones only (`DEPENDS`). No `wpad` swap: the service refuses to start on a basic build |
+| Firmware upgrade | Appends `/etc/openuf/` and `/opt/openuf/conf.lua` to `/etc/sysupgrade.conf` | Lists the same two paths in `/lib/upgrade/keep.d/openuf`. The package itself is not kept: reinstall it after the upgrade |
+| `syswrapper.sh`, `/etc/init.d/openuf` | Installed | Installed, the same files |
+| `lldpd` | Enabled and started | Not touched |
+| `--bootstrap-adopt` | Creates the `ubnt` account | Not available. An account and a `bootstrap_adopt_user` setting from `install.sh` are kept |
+| Over an `install.sh` install | | The pre-install script stops the service and deletes `/opt/openuf/` except `conf.lua` |
+| Removal | `install.sh uninstall` deletes `/opt/openuf/` with `conf.lua`, its `sysupgrade.conf` line, any `ubnt` account, and openUF's cron block | `apk del openuf` keeps `/etc/openuf/` and `/opt/openuf/conf.lua`, deletes the `ubnt` account only when openUF created it, and deletes openUF's cron block. `/etc/sysupgrade.conf` is not touched |
+
+Do not run `install.sh` on a device that has the package.
+
 ---
 
 ## 3. Configuration

@@ -18,6 +18,8 @@ instances (`announce`, `inform`) from `/opt/openuf/`.
   or by path as the modules do, never with a bare `require "util"`. Point a module's
   `M._read_file`-style seams at it rather than copying a helper.
 - `modelmap/` = board hardware profile, `ufmodel/` = presented UniFi identity
+- `package/openuf/Makefile`: the OpenWrt package, with this repo as the feed. It ships the
+  tree `tools/dist.sh --stage` writes. Set its `PKG_VERSION` to each release tag.
 - `docs/WIRE-REFERENCE.md` — the wire format itself: envelope, response `_type`s, every
   `system_cfg` key, every outbound field. Read the relevant section before touching a
   protocol field. `PROTOCOL-VALIDATION.md` — how those claims were established, the
