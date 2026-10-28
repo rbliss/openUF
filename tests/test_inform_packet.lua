@@ -5503,6 +5503,49 @@ return {
 		end
 	},
 	{
+		name = "inform: a pending device's HTTP 404 keeps its own cadence and is logged once",
+		fn = function()
+			local orig = {
+				build_json = inform.build_json, build_packet = inform.build_packet,
+				http_post = inform.http_post, parse_packet = inform.parse_packet,
+				handle_response = inform.handle_response,
+				reload = inform._reload_if_changed, rrm = inform._rrm_tick,
+				stderr = io.stderr,
+			}
+			local logged = {}
+			io.stderr = {write = function(_, s) logged[#logged + 1] = s end}
+			inform._reload_if_changed = function(_, _, last) return last end
+			inform._rrm_tick = function() return false end
+			inform.build_json = function() return "{}" end
+			inform.build_packet = function() return "pkt" end
+			inform.parse_packet = function() return '{"_type":"noop"}' end
+			inform.handle_response = function() return false end
+			inform._logged_pending = false
+
+			local ctx = {interval = 10, backoff = 10}
+			local st = {inform_url = "http://192.0.2.1:8080/inform", adopted = false}
+			inform.http_post = function() return nil, "HTTP 404" end
+			local waits = {}
+			for i = 1, 3 do waits[i] = inform._tick(st, nil, nil, ctx) end
+			local pending_lines = #logged
+
+			st.adopted = true
+			local adopted_wait = inform._tick(st, nil, nil, ctx)
+
+			io.stderr = orig.stderr
+			inform.build_json, inform.build_packet, inform.http_post,
+				inform.parse_packet, inform.handle_response,
+				inform._reload_if_changed, inform._rrm_tick =
+				orig.build_json, orig.build_packet, orig.http_post,
+				orig.parse_packet, orig.handle_response, orig.reload, orig.rrm
+			inform._logged_pending = false
+
+			assert_eq(table.concat(waits, ","), "10,10,10", "no backoff while pending")
+			assert_eq(pending_lines, 1, "the pending state is logged once, not every inform")
+			assert_eq(adopted_wait, 20, "an adopted device's 404 is a failure and backs off")
+		end
+	},
+	{
 		name = "inform: _sane_interval clamps the controller's interval",
 		fn = function()
 			assert_eq(inform._sane_interval(10), 10, "a normal value passes through")

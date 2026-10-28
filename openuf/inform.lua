@@ -6855,6 +6855,8 @@ function M._roam_poll()
 	end
 end
 
+M._logged_pending = false
+
 function M._tick(st, cfg, ufhw, ctx)
 	-- base_interval is the device's own cadence; interval is what the loop
 	-- actually waits, which the controller's noop may have moved.
@@ -6918,6 +6920,19 @@ function M._tick(st, cfg, ufhw, ctx)
 
 	local body, err = M.http_post(st.inform_url, pkt)
 	if not body then
+		-- The controller answers HTTP 404 to an unadopted device on every
+		-- inform until someone clicks Adopt (PROTOCOL-VALIDATION.md, "A 404
+		-- with an empty body"). That is its normal answer, so the device
+		-- keeps its own cadence and logs it once.
+		if not st.adopted and err == "HTTP 404" then
+			if not M._logged_pending then
+				io.stderr:write("inform: pending adoption (HTTP 404 until adopted in the controller)\n")
+				M._logged_pending = true
+			end
+			ctx.interval = ctx.base_interval
+			ctx.backoff  = ctx.interval
+			return ctx.interval
+		end
 		io.stderr:write("inform: POST failed: " .. tostring(err) .. "\n")
 		M._warn_http_400(err, st, cfg)
 		if M._guestportal then pcall(M._guest_selfrun, st, false) end
@@ -6930,6 +6945,7 @@ function M._tick(st, cfg, ufhw, ctx)
 	end
 	ctx.backoff = ctx.interval
 	M._warned_400 = false
+	M._logged_pending = false
 	if M._guestportal then pcall(M._guest_selfrun, st, true) end
 
 	local parse_ok, json_body = pcall(M.parse_packet, body, st)
