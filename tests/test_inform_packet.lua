@@ -772,6 +772,19 @@ return {
 		end
 	},
 	{
+		name = "inform packet: a system_cfg line splits at its first '=', so values may hold '='",
+		fn = function()
+			local cfg = "aaa.1.ssid=a=b=\naaa.1.wpa=2\naaa.1.wpa.key.1.mgmt=WPA-PSK\n"
+				.. "aaa.1.wpa.psk=pass=word==\n"
+				.. "wireless.1.ssid=a=b=\nwireless.1.parent=radio0\n"
+				.. "qos.vap.1.devname=ath0\nqos.vap.1.name=x=y\n"
+			local _, vt = inform._parse_wifi_system_cfg(cfg)
+			assert_not_nil(vt[1], "the WLAN is parsed")
+			assert_eq(vt[1].ssid, "a=b=", "the SSID keeps its '='")
+			assert_eq(vt[1].x_passphrase, "pass=word==", "the passphrase keeps its '='")
+		end
+	},
+	{
 		name = "inform packet: per-BSS okc, tdls_prohibit, country_beacon and the pairwise cipher",
 		fn = function()
 			-- Verbatim shapes from a 10.6.106 capture (lab, 2026-10-26),

@@ -675,7 +675,9 @@ inside the flat, OpenWrt/hostapd-style `system_cfg` key=value blob on a `setpara
 shape `ucihelper.apply_config()` expects.
 
 Conventions throughout: booleans are `"enabled"`/`"disabled"` (sometimes `"true"`/`"1"`), and
-an **absent block means disabled** — there is generally no explicit `status=false`.
+an **absent block means disabled** — there is generally no explicit `status=false`. A line
+splits at its first `=`: keys hold none, and values such as `aaa.<n>.wpa.psk` and
+`wireless.<n>.ssid` may.
 
 **Provisioning is not driven by `cfgversion` alone.** A device reporting a stale or bogus
 version sometimes gets an immediate full push and sometimes only `noop`s, indefinitely, even
