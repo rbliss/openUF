@@ -1,0 +1,27 @@
+#!/bin/sh
+# The veth pair for hostapd's ft_iface and the rrb-unifi daemon. Existing
+# sections are left alone, so a manual install keeps its names.
+
+uci -q get network.vft >/dev/null && exit 0
+uci -q get network.ftlink >/dev/null && exit 0
+uci -q get network.ftpeer >/dev/null && exit 0
+
+ft=$(uci -q get rrb-unifi.main.ft_iface)
+peer=$(uci -q get rrb-unifi.main.peer_iface)
+[ -n "$ft" ] || ft=vft0
+[ -n "$peer" ] || peer=vft1
+
+uci -q batch <<EOT
+set network.vft=device
+set network.vft.type='veth'
+set network.vft.name='$ft'
+set network.vft.peer_name='$peer'
+set network.ftlink=interface
+set network.ftlink.proto='none'
+set network.ftlink.device='$ft'
+set network.ftpeer=interface
+set network.ftpeer.proto='none'
+set network.ftpeer.device='$peer'
+EOT
+uci commit network
+exit 0
