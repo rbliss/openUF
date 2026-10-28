@@ -167,6 +167,14 @@ install a full `wpad` build and the optional packages from [§ 1](#1-dependencie
 
 Do not run `install.sh` on a device that has the package.
 
+`package/luci-app-openuf/` adds a read-only status page at Services → openUF. ⚠️ It has never
+been built or opened in LuCI. It shows whether the daemon runs, the adoption state and
+`cfgversion` from `state.json`, the presented model and reported firmware from the ufmodel,
+and the modelmap's ports, radios and LED. The rpcd backend `luci.openuf` runs
+`/usr/libexec/luci-openuf-conf.lua` from `/opt/openuf/` to read `conf.lua`, because
+`conf.lua` is Lua code. The page edits no setting: openUF reads its settings from
+`conf.lua`, which LuCI's forms cannot write.
+
 ---
 
 ## 3. Configuration

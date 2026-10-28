@@ -19,7 +19,8 @@ instances (`announce`, `inform`) from `/opt/openuf/`.
   `M._read_file`-style seams at it rather than copying a helper.
 - `modelmap/` = board hardware profile, `ufmodel/` = presented UniFi identity
 - `package/openuf/Makefile`: the OpenWrt package, with this repo as the feed. It ships the
-  tree `tools/dist.sh --stage` writes. Set its `PKG_VERSION` to each release tag.
+  tree `tools/dist.sh --stage` writes. `package/luci-app-openuf/`: the LuCI status page; its
+  rpcd backend reads `state.json` fields by name. Set both `PKG_VERSION`s to each release tag.
 - `docs/WIRE-REFERENCE.md` — the wire format itself: envelope, response `_type`s, every
   `system_cfg` key, every outbound field. Read the relevant section before touching a
   protocol field. `PROTOCOL-VALIDATION.md` — how those claims were established, the
