@@ -10,12 +10,22 @@
 #   sh tools/dist.sh            — build openuf.tar.gz
 #   sh tools/dist.sh --verify   — build, then prove the stripped tree is
 #                                 bytecode-identical and still passes the suite
+#   sh tools/dist.sh --stage <dir>
+#                                 write only the stripped tree to <dir>, for
+#                                 the OpenWrt package (package/openuf/Makefile)
+#
+# LUA names the interpreter that runs tools/strip.lua (default: lua).
 
 set -e
 
 BUILD=build
 STAGE=$BUILD/openuf
 TARBALL=openuf.tar.gz
+LUA=${LUA:-lua}
+if [ "$1" = "--stage" ]; then
+	[ -n "$2" ] || { echo "usage: sh tools/dist.sh --stage <dir>" >&2; exit 2; }
+	STAGE=$2
+fi
 
 # conf.lua and the modelmaps are the files a user is *expected* to hand-edit on
 # the device (modelmap selection, inform_url, radio names, LED sysfs path).
@@ -29,7 +39,11 @@ keep_comments() {
 }
 
 # ── Stage ───────────────────────────────────────────────────────────────────
-rm -rf "$BUILD"
+if [ "$1" = "--stage" ]; then
+	rm -rf "$STAGE"
+else
+	rm -rf "$BUILD"
+fi
 mkdir -p "$STAGE"
 
 for src in $(find openuf -type f | sort); do
@@ -41,7 +55,7 @@ for src in $(find openuf -type f | sort); do
 			if keep_comments "$src"; then
 				cp "$src" "$dst"
 			else
-				lua tools/strip.lua "$src" > "$dst"
+				"$LUA" tools/strip.lua "$src" > "$dst"
 			fi
 			;;
 		*.sh|*/init.d/*)
@@ -59,6 +73,8 @@ done
 # Preserve the executable bit the installer relies on.
 chmod +x "$STAGE/etc/init.d/openuf" "$STAGE/hook/syswrapper.sh" \
 	"$STAGE/hook/adopt-shell.sh"
+
+[ "$1" = "--stage" ] && exit 0
 
 cp install.sh LICENSE "$BUILD/"
 

@@ -241,6 +241,11 @@ it. Existing entries in `/etc/sysupgrade.conf` are left alone; see
 Installing from a git checkout instead (for contributors/dev builds) still works — `scp -r
 openuf/ install.sh root@<device>:/tmp/openuf/` and run `install.sh` from there.
 
+An OpenWrt package is the other way in. ⚠️ It has never been built with an OpenWrt SDK
+or installed on an AP. `package/openuf/` builds an `apk` with this repository as a feed,
+installed to the same `/opt/openuf/`, with only the required dependencies and no `wpad`
+swap ([USAGE § 2](USAGE.md#openwrt-package)).
+
 See [USAGE.md](USAGE.md) for full dependency details, configuration reference, and troubleshooting.
 
 ## Local testing (no hardware required)
